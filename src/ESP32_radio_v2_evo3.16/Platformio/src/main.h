@@ -1,17 +1,21 @@
+#ifndef MAIN_H_
+#define MAIN_H_
+
 #include "Arduino.h"
 #include "config.h"
 #include "html.h"
 #include "fonts.h"
 #include "pictures.h"
+#include "tools.h"
+#include "keyboard.h"
 
-enum MenuOption
+enum MenuOption : int
 {
   PLAY_FILES,     // Odtwarzacz plików
   INTERNET_RADIO, // Radio internetowe
 };
 
-MenuOption currentOption = INTERNET_RADIO; // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
-
+MenuOption currentOption = static_cast<MenuOption>(INTERNET_RADIO); // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 const char *ntpServer1 = NTP_SERWER1;  // Adres serwera NTP używany do synchronizacji czasu
 const char *ntpServer2 = NTP_SERWER2; // Adres serwera NTP używany do synchronizacji czasu
 const long gmtOffset_sec = 3600;          // Przesunięcie czasu UTC w sekundach
@@ -71,6 +75,13 @@ uint8_t rcInputDigit2 = 0xFF; // Druga cyfra w przy wprowadzaniu numeru stacji z
 uint8_t configArray[16] = {0};
 uint8_t rcPage = 0;
 
+// Flagi do monitorowania stanu klawiatury
+unsigned long keyboardValue = 0;
+unsigned long keyboardLastSampleTime = 0;
+unsigned long keyboardSampleDelay = 50;
+bool debugKeyboard = false;         // Wyłącza wywoływanie funkcji i zostawia tylko wydruk pomiaru ADC
+bool keyboardButtonPressed = false;
+
 // const int maxVisibleLines = 5;  // Maksymalna liczba widocznych linii na ekranie OLED
 bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty
 bool encoderButton2 = false;      // Flaga określająca, czy przycisk enkodera 2 został wciśnięty
@@ -112,7 +123,7 @@ unsigned long seconds = 0;                                                      
 unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // deklaracjia długości pamięci PSRAM
 unsigned long lastCheckTime = 0;                                                 // No stream audio blink
 uint8_t stationNameStreamWidth = 0;                                              // Test pełnej nazwy stacji
-uint8_t x = 0;                                                                   // Globalna zmienna pomocnicza
+uint8_t displayPositionX = 0;                                                                   // Globalna zmienna pomocnicza
 
 unsigned long vuMeterTime; // Czas opznienia odswiezania wskaznikow VU w milisekundach
 uint8_t vuMeterL;          // Wartosc VU dla L kanału zakres 0-255
@@ -189,13 +200,11 @@ const int LOW_THRESHOLD = 600;   // Sygnał "0"
 bool data_start_detected = false; // Flaga dla sygnału wstępnego
 bool rcInputDigitsMenuEnable = false;
 
-// Flagi do monitorowania stanu klawiatury
-bool keyboardButtonPressed = false; // Wcisnięcie klawisza
-bool debugKeyboard = false;         // Wyłącza wywoływanie funkcji i zostawia tylko wydruk pomiaru ADC
-
 const char *PARAM_INPUT_1 = "volume";
 const char *PARAM_INPUT_2 = "station";
 const char *PARAM_INPUT_3 = "bank";
 const char *PARAM_INPUT_4 = "url";
 
 char stations[MAX_STATIONS][STATION_NAME_LENGTH + 1]; // Tablica przechowująca linki do stacji radiowych (jedna na stację) +1 dla terminatora null
+
+#endif

@@ -1,6 +1,11 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#include <SD.h>
+#include <EEPROM.h>
+#include <U8g2lib.h>     // Biblioteka do obsługi wyświetlaczy
+#include "fonts.h"
+
 // definicja pinow czytnika karty SD
 #define SD_CS 47   // Pin CS (Chip Select) dla karty SD wybierany jako interfejs SPI
 #define SD_SCLK 45 // Pin SCK (Serial Clock) dla karty SD
@@ -65,30 +70,6 @@
 
 const int keyboardPin = 9; // wejscie klawiatury (ADC)
 
-unsigned long keyboardValue = 0;
-unsigned long keyboardLastSampleTime = 0;
-unsigned long keyboardSampleDelay = 50;
-
-// ---- Progi przełaczania ADC dla klawiatury matrycowej 5x3 w tunrze Sony ST-120 ---- //
-const int keyboardButtonThresholdTolerance = 20; // Tolerancja dla pomiaru ADC
-const int keyboardButtonNeutral = 4095;          // Pozycja neutralna
-const int keyboardButtonThreshold_0 = 2375;      // Przycisk 0
-const int keyboardButtonThreshold_1 = 10;        // Przycisk 1
-const int keyboardButtonThreshold_2 = 545;       // Przycisk 2
-const int keyboardButtonThreshold_3 = 1390;      // Przycisk 3
-const int keyboardButtonThreshold_4 = 1925;      // Przycisk 4
-const int keyboardButtonThreshold_5 = 2285;      // Przycisk 5
-const int keyboardButtonThreshold_6 = 385;       // Przycisk 6
-const int keyboardButtonThreshold_7 = 875;       // Przycisk 7
-const int keyboardButtonThreshold_8 = 1585;      // Przycisk 8
-const int keyboardButtonThreshold_9 = 2055;      // Przycisk 9
-const int keyboardButtonThreshold_Shift = 2455;  // Shift - funkcja Enter/OK
-const int keyboardButtonThreshold_Memory = 2170; // Memory - funkcja Bank menu
-const int keyboardButtonThreshold_Band = 1640;   // Przycisk Band - funkcja Back
-const int keyboardButtonThreshold_Auto = 730;    // Przycisk Auto - przelacza Radio/Zegar
-const int keyboardButtonThreshold_Scan = 1760;   // Przycisk Scan - funkcja Dimmer ekranu OLED
-const int keyboardButtonThreshold_Mute = 1130;   // Przycisk Mute - funkcja MUTE
-
 // ----------- PILOT IR ----------- //
 // Przypisanie przycisków i adresu pilota w standardzie NEC
 // pierwszy bajt adres, drugi komenda (B914 - adres B9 komenda 14)
@@ -119,5 +100,49 @@ const int keyboardButtonThreshold_Mute = 1130;   // Przycisk Mute - funkcja MUTE
 #define rcCmdKey7 0xB907       // Przycisk "7"
 #define rcCmdKey8 0xB908       // Przycisk "8"
 #define rcCmdKey9 0xB909       // Przycisk "9"
+
+// -------------------- Koniec konfiguracji ------------------- //
+
+extern U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2;
+
+extern unsigned long displayStartTime;
+extern bool equalizerMenuEnable;
+extern bool timeDisplay; 
+extern bool displayActive; 
+extern const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL");
+extern bool displayAutoDimmerOn;
+extern uint16_t displayAutoDimmerTime;
+
+extern int stationsCount;
+extern bool mp3;
+extern bool flac;
+extern bool aac;
+extern bool vorbis;
+extern bool id3tag; 
+extern String stationString; 
+extern uint8_t bank_nr;  
+extern String stationName;  
+
+extern unsigned char *psramData;   
+extern uint8_t displayPositionX;  
+
+extern File myFile;
+extern uint8_t station_nr;
+extern bool noSDcard;
+
+class Config
+{
+    
+public:
+    void saveConfig();
+    void readConfig();
+    void displayConfig(); // Add displayConfig method declaration
+    void readSDStations();
+    void saveStationToPSRAM(const char *station);
+    void sanitizeAndSaveStation(const char *station);
+    void saveStationOnSD();
+private:
+    void drawSwitch(uint8_t x, uint8_t y, bool state);
+};
 
 #endif
