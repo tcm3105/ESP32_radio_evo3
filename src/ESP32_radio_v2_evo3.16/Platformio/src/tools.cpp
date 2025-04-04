@@ -1,4 +1,5 @@
 #include "tools.h"
+#include "config.h"
 
 void Tools::processText(String &text)
 {
@@ -89,10 +90,10 @@ void Tools::processText(String &text)
 // Funkcja odwracania bitów MSL-LSB <-> LSB-MSB
 uint32_t Tools::reverse_bits(uint32_t inval, int bits)
 {
-  if (bits > 0)
-  {
-    bits--;
-    return reverse_bits(inval >> 1, bits) | ((inval & 1) << bits);
-  }
-  return 0;
+    if (bits > 0)
+    {
+        bits--;
+        return reverse_bits(inval >> 1, bits) | ((inval & 1) << bits);
+    }
+    return 0;
 }

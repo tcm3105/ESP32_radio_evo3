@@ -3,7 +3,7 @@
 
 #include <SD.h>
 #include <EEPROM.h>
-#include <U8g2lib.h>     // Biblioteka do obsługi wyświetlaczy
+#include <U8g2lib.h> // Biblioteka do obsługi wyświetlaczy
 #include "fonts.h"
 
 // definicja pinow czytnika karty SD
@@ -66,10 +66,6 @@
 #define STATIONS_URL15 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank15.txt" // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL16 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank16.txt" // Adres URL do pliku z listą stacji radiowych
 
-//================ Definicja portów i pinów dla klaiwatury numerycznej ===========================//
-
-const int keyboardPin = 9; // wejscie klawiatury (ADC)
-
 // ----------- PILOT IR ----------- //
 // Przypisanie przycisków i adresu pilota w standardzie NEC
 // pierwszy bajt adres, drugi komenda (B914 - adres B9 komenda 14)
@@ -107,32 +103,51 @@ extern U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2;
 
 extern unsigned long displayStartTime;
 extern bool equalizerMenuEnable;
-extern bool timeDisplay; 
-extern bool displayActive; 
+extern bool timeDisplay;
+extern bool displayActive;
 extern const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL");
 extern bool displayAutoDimmerOn;
 extern uint16_t displayAutoDimmerTime;
+
+extern int directoryCount;
+extern String directories[MAX_FILES]; 
+extern String fileNameString; 
+extern String artistString;   
+extern String titleString; 
 
 extern int stationsCount;
 extern bool mp3;
 extern bool flac;
 extern bool aac;
 extern bool vorbis;
-extern bool id3tag; 
-extern String stationString; 
-extern uint8_t bank_nr;  
-extern String stationName;  
+extern bool id3tag;
+extern bool bitratePresent;  
+extern String bitrateString;
+extern int bitrateStringInt;
+extern String sampleRateString;
+extern String bitsPerSampleString; 
 
-extern unsigned char *psramData;   
-extern uint8_t displayPositionX;  
+extern String stationString;
+extern uint8_t bank_nr;
+extern String stationName;
+
+
+extern unsigned char *psramData;
+extern uint8_t displayPositionX;
 
 extern File myFile;
 extern uint8_t station_nr;
 extern bool noSDcard;
 
+extern uint8_t volumeValue;             // Wartość głośności, domyślnie ustawiona na 10
+extern uint8_t volumeBufferValue; 
+extern int8_t toneLowValue;          // Wartosc filtra dla tonow niskich
+extern int8_t toneMidValue;          // Wartosc flitra dla tonow srednich
+extern int8_t toneHiValue;        // Wartosc filtra dla tonow wysokich
+
+
 class Config
 {
-    
 public:
     void saveConfig();
     void readConfig();
@@ -141,8 +156,15 @@ public:
     void saveStationToPSRAM(const char *station);
     void sanitizeAndSaveStation(const char *station);
     void saveStationOnSD();
+    void readStationFromSD();
+    void readEqualizerFromSD();
+    void saveEqualizerOnSD();
+    void readVolumeFromSD();
+    void saveVolumeOnSD();
+
 private:
     void drawSwitch(uint8_t x, uint8_t y, bool state);
+    void readPSRAMstations();
 };
 
 #endif

@@ -7,7 +7,7 @@
 #include "fonts.h"
 #include "pictures.h"
 #include "tools.h"
-#include "keyboard.h"
+#include "filePlayer.h"
 
 enum MenuOption : int
 {
@@ -74,13 +74,6 @@ uint8_t rcInputDigit2 = 0xFF; // Druga cyfra w przy wprowadzaniu numeru stacji z
 // ---- Config ---- // - prototype function for config storage
 uint8_t configArray[16] = {0};
 uint8_t rcPage = 0;
-
-// Flagi do monitorowania stanu klawiatury
-unsigned long keyboardValue = 0;
-unsigned long keyboardLastSampleTime = 0;
-unsigned long keyboardSampleDelay = 50;
-bool debugKeyboard = false;         // Wyłącza wywoływanie funkcji i zostawia tylko wydruk pomiaru ADC
-bool keyboardButtonPressed = false;
 
 // const int maxVisibleLines = 5;  // Maksymalna liczba widocznych linii na ekranie OLED
 bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty

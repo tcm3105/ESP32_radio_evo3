@@ -331,3 +331,324 @@ void Config::saveStationOnSD()
     EEPROM.commit();
   }
 }
+
+// Funkcja do odczytu danych stacji radiowej z karty SD
+void Config::readStationFromSD()
+{
+  // Sprawdź, czy karta SD jest dostępna
+  if (!SD.begin(47))
+  {
+    // Serial.println("Nie można znaleźć karty SD. Ustawiam domyślne wartości: Station=1, Bank=1.");
+    Serial.println("Nie można znaleźć karty SD. Ustawiam wartości z EEPROMu");
+    // station_nr = 1;  // Domyślny numer stacji gdy brak karty SD
+    // bank_nr = 1;     // Domyślny numer banku gdy brak karty SD
+    EEPROM.get(0, station_nr);
+    EEPROM.get(1, bank_nr);
+
+    Serial.print("Odczyt EEPROM Stacja: ");
+    Serial.println(station_nr);
+    Serial.print("Odczyt EEPROM Bank: ");
+    Serial.println(bank_nr);
+
+    if ((station_nr > 99) || (station_nr == 0))
+    {
+      station_nr = 1;
+    } // zabezpiecznie na wypadek błędnego odczytu EEPROMu lub wartości
+    if ((bank_nr > 16) || (bank_nr == 0))
+    {
+      bank_nr = 1;
+    }
+
+    return;
+  }
+
+  // Sprawdź, czy plik station_nr.txt istnieje
+  if (SD.exists("/station_nr.txt"))
+  {
+    myFile = SD.open("/station_nr.txt");
+    if (myFile)
+    {
+      station_nr = myFile.parseInt();
+      myFile.close();
+      Serial.print("Wczytano station_nr z karty SD: ");
+      Serial.println(station_nr);
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku station_nr.txt.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik station_nr.txt nie istnieje.");
+    station_nr = 9; // ustawiamy stacje w przypadku braku pliku na karcie
+  }
+
+  // Sprawdź, czy plik bank_nr.txt istnieje
+  if (SD.exists("/bank_nr.txt"))
+  {
+    myFile = SD.open("/bank_nr.txt");
+    if (myFile)
+    {
+      bank_nr = myFile.parseInt();
+      myFile.close();
+      Serial.print("Wczytano bank_nr z karty SD: ");
+      Serial.println(bank_nr);
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku bank_nr.txt.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik bank_nr.txt nie istnieje.");
+    bank_nr = 1; // // ustawiamy bank w przypadku braku pliku na karcie
+  }
+}
+
+// Funkcja testowa-debug, do odczytu PSRAMu, nie uzywana przez inne funkcje
+void Config::readPSRAMstations()
+{
+  Serial.println("-------- POCZATEK LISTY STACJI ---------- ");
+  for (int i = 0; i < stationsCount; i++)
+  {
+    // Odczyt stacji pod daną komórka pamieci PSRAM:
+    char station[STATION_NAME_LENGTH + 1];                   // Tablica na nazwę stacji o maksymalnej długości zdefiniowanej przez STATION_NAME_LENGTH
+    memset(station, 0, sizeof(station));                     // Wyczyszczenie tablicy zerami przed zapisaniem danych
+    int length = psramData[(i) * (STATION_NAME_LENGTH + 1)]; // Odczytaj długość nazwy stacji z PSRAM dla bieżącego indeksu stacji
+
+    for (int j = 0; j < min(length, STATION_NAME_LENGTH); j++)
+    {                                                                  // Odczytaj nazwę stacji z PSRAM jako ciąg bajtów, maksymalnie do STATION_NAME_LENGTH
+      station[j] = psramData[(i) * (STATION_NAME_LENGTH + 1) + 1 + j]; // Odczytaj znak po znaku nazwę stacji
+    }
+    String stationNameText = String(station);
+
+    Serial.print(i + 1);
+    Serial.print(" ");
+    Serial.println(stationNameText);
+  }
+
+  Serial.println("-------- KONIEC LISTY STACJI ---------- ");
+
+  String stationUrl = "";
+
+  // Odczyt stacji pod daną komórka pamieci PSRAM:
+  char station[STATION_NAME_LENGTH + 1];                                // Tablica na nazwę stacji o maksymalnej długości zdefiniowanej przez STATION_NAME_LENGTH
+  memset(station, 0, sizeof(station));                                  // Wyczyszczenie tablicy zerami przed zapisaniem danych
+  int length = psramData[(station_nr - 1) * (STATION_NAME_LENGTH + 1)]; // Odczytaj długość nazwy stacji z PSRAM dla bieżącego indeksu stacji
+
+  for (int j = 0; j < min(length, STATION_NAME_LENGTH); j++)
+  {                                                                               // Odczytaj nazwę stacji z PSRAM jako ciąg bajtów, maksymalnie do STATION_NAME_LENGTH
+    station[j] = psramData[(station_nr - 1) * (STATION_NAME_LENGTH + 1) + 1 + j]; // Odczytaj znak po znaku nazwę stacji
+  }
+
+  // String stationNameText = String(station);
+
+  Serial.println("-------- OBECNIE GRAMY  ---------- ");
+  Serial.print(station_nr - 1);
+  Serial.print(" ");
+  Serial.println(String(station));
+}
+
+void Config::readEqualizerFromSD()
+{
+  // Sprawdź, czy karta SD jest dostępna
+  if (!SD.begin(47))
+  {
+    Serial.println("Nie można znaleźć karty SD. Ustawiam domyślne wartości filtrow Equalziera.");
+    toneHiValue = 0;  // Domyślna wartość filtra gdy brak karty SD
+    toneMidValue = 0; // Domyślna wartość filtra gdy brak karty SD
+    toneLowValue = 0; // Domyślna wartość filtra gdy brak karty SD
+    return;
+  }
+
+  // Sprawdź, czy plik equalizer.txt istnieje
+  if (SD.exists("/equalizer.txt"))
+  {
+    myFile = SD.open("/equalizer.txt");
+    if (myFile)
+    {
+      toneHiValue = myFile.parseInt();
+      toneMidValue = myFile.parseInt();
+      toneLowValue = myFile.parseInt();
+      myFile.close();
+
+      Serial.println("Wczytano equalizer.txt z karty SD: ");
+
+      Serial.print("Filtr High equalizera odczytany z SD: ");
+      Serial.println(toneHiValue);
+
+      Serial.print("Filtr Mid equalizera odczytany z SD: ");
+      Serial.println(toneMidValue);
+
+      Serial.print("Filtr Low equalizera odczytany z SD: ");
+      Serial.println(toneLowValue);
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku equalizer.txt.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik equalizer.txt nie istnieje.");
+    toneHiValue = 0;  // Domyślna wartość filtra gdy brak karty SD
+    toneMidValue = 0; // Domyślna wartość filtra gdy brak karty SD
+    toneLowValue = 0; // Domyślna wartość filtra gdy brak karty SD
+  }
+}
+
+void Config::saveEqualizerOnSD()
+{
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_fub14_tf);                 // cziocnka 14x11
+  u8g2.drawStr(1, 33, "Saving equalizer settings"); // 8 znakow  x 11 szer
+  u8g2.sendBuffer();
+
+  // Sprawdź, czy plik equalizer.txt istnieje
+
+  Serial.print("Filtr High: ");
+  Serial.println(toneHiValue);
+
+  Serial.print("Filtr Mid: ");
+  Serial.println(toneMidValue);
+
+  Serial.print("Filtr Low: ");
+  Serial.println(toneLowValue);
+
+  // Sprawdź, czy plik istnieje
+  if (SD.exists("/equalizer.txt"))
+  {
+    Serial.println("Plik equalizer.txt już istnieje.");
+
+    // Otwórz plik do zapisu i nadpisz aktualną wartość flitrów equalizera
+    myFile = SD.open("/equalizer.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(toneHiValue);
+      myFile.println(toneMidValue);
+      myFile.println(toneLowValue);
+      myFile.close();
+      Serial.println("Aktualizacja equalizer.txt na karcie SD.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku equalizer.txt.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik equalizer.txt nie istnieje. Tworzenie...");
+
+    // Utwórz plik i zapisz w nim aktualną wartość filtrów equalizera
+    myFile = SD.open("/equalizer.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(toneHiValue);
+      myFile.println(toneMidValue);
+      myFile.println(toneLowValue);
+      myFile.close();
+      Serial.println("Utworzono i zapisano equalizer.txt na karcie SD.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia pliku equalizer.txt.");
+    }
+  }
+}
+
+void Config::readVolumeFromSD()
+{
+  // Sprawdź, czy karta SD jest dostępna
+  if (!SD.begin(47))
+  {
+    Serial.println("Nie można znaleźć karty SD. Ustawiam wartość Volume z EEPROMu.");
+    Serial.print("Wartość Volume: ");
+    EEPROM.get(2, volumeValue);
+    if (volumeValue > 21)
+    {
+      volumeValue = 10;
+    } // zabezpiczenie przed pusta komorka EEPROM o wartosci FF (255)
+
+    volumeBufferValue = volumeValue;
+
+    Serial.println(volumeValue);
+    return;
+  }
+  // Sprawdź, czy plik volume.txt istnieje
+  if (SD.exists("/volume.txt"))
+  {
+    myFile = SD.open("/volume.txt");
+    if (myFile)
+    {
+      volumeValue = myFile.parseInt();
+      myFile.close();
+
+      Serial.println("Wczytano volume.txt z karty SD");
+      Serial.print("Wartość Volume odczytany z SD: ");
+      Serial.println(volumeValue);
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku volume.txt");
+    }
+  }
+  else
+  {
+    Serial.println("Plik volume.txt nie istnieje.");
+    Serial.print("Wartość Volume domyślna:");
+    Serial.println(volumeValue);
+  }
+  volumeBufferValue = volumeValue;
+}
+
+void Config::saveVolumeOnSD()
+{
+  volumeBufferValue = volumeValue;
+
+  // Sprawdź, czy plik volume.txt istnieje
+  Serial.print("Volume: ");
+  Serial.println(volumeValue);
+
+  // Sprawdź, czy plik istnieje
+  if (SD.exists("/volume.txt"))
+  {
+    Serial.println("Plik volume.txt już istnieje.");
+
+    // Otwórz plik do zapisu i nadpisz aktualną wartość flitrów equalizera
+    myFile = SD.open("/volume.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(volumeValue);
+      myFile.close();
+      Serial.println("Aktualizacja volume.txt na karcie SD.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas otwierania pliku volume.txt.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik volume.txt nie istnieje. Tworzenie...");
+
+    // Utwórz plik i zapisz w nim aktualną wartość głośności
+    myFile = SD.open("/volume.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(volumeValue);
+      myFile.close();
+      Serial.println("Utworzono i zapisano volume.txt na karcie SD.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia pliku volume.txt.");
+    }
+  }
+  if (noSDcard == true)
+  {
+    EEPROM.write(2, volumeValue);
+    EEPROM.commit();
+  }
+}
