@@ -5,14 +5,12 @@
 #include <EEPROM.h>
 #include <U8g2lib.h> // Biblioteka do obsługi wyświetlaczy
 #include "fonts.h"
-
-// definicja pinow czytnika karty SD
-#define SD_CS 47   // Pin CS (Chip Select) dla karty SD wybierany jako interfejs SPI
-#define SD_SCLK 45 // Pin SCK (Serial Clock) dla karty SD
-#define SD_MISO 21 // Pin MISO (Master In Slave Out) dla karty SD
-#define SD_MOSI 48 // pin MOSI (Master Out Slave In) dla karty SD
+#include <HTTPClient.h>  // Biblioteka do wykonywania żądań HTTP, umożliwia komunikację z serwerami przez protokół HTTP
 
 // Definicja pinow dla wyswietlacza OLED
+#define SCREEN_WIDTH 256 // Szerokość ekranu w pikselach
+#define SCREEN_HEIGHT 64 // Wysokość ekranu w pikselach
+
 #define SPI_MOSI_OLED 39 // Pin MOSI (Master Out Slave In) dla interfejsu SPI OLED
 #define SPI_MISO_OLED 0  // Pin MISO (Master In Slave Out) brak dla wyswietlacza OLED
 #define SPI_SCK_OLED 38  // Pin SCK (Serial Clock) dla interfejsu SPI OLED
@@ -25,8 +23,11 @@
 #define I2S_BCLK 12 // Podłączenie po pinu BCK na DAC
 #define I2S_LRC 14  // Podłączenie do pinu LCK na DAC
 
-#define SCREEN_WIDTH 256 // Szerokość ekranu w pikselach
-#define SCREEN_HEIGHT 64 // Wysokość ekranu w pikselach
+// definicja pinow czytnika karty SD
+#define SD_CS 47   // Pin CS (Chip Select) dla karty SD wybierany jako interfejs SPI
+#define SD_SCLK 45 // Pin SCK (Serial Clock) dla karty SD
+#define SD_MISO 21 // Pin MISO (Master In Slave Out) dla karty SD
+#define SD_MOSI 48 // pin MOSI (Master Out Slave In) dla karty SD - rgb LED
 
 // Enkoder 1 - uzwyany dla odtwarzacza
 #define CLK_PIN1 6 // Podłączenie z pinu 6 do CLK na enkoderze prawym
@@ -47,7 +48,7 @@
 // definicja dlugosci ilosci stacji w banku, dlugosci nazwy stacji w PSRAM/EEPROM, maksymalnej ilosci plikow audio (odtwarzacz)
 #define MAX_STATIONS 99         // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 200 // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
-#define MAX_FILES 100           // Maksymalna liczba plików lub katalogów w tablicy directoriesz
+#define MAX_FILES 100           // Maksymalna liczba plików lub katalogów 
 
 #define STATIONS_URL1 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank01.txt"  // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank02.txt"  // Adres URL do pliku z listą stacji radiowych
@@ -146,6 +147,16 @@ extern int8_t toneMidValue;          // Wartosc flitra dla tonow srednich
 extern int8_t toneHiValue;        // Wartosc filtra dla tonow wysokich
 
 
+extern bool volumeSet;
+extern bool bankMenuEnable;
+extern bool bankNetworkUpdate;
+
+extern bool bankChange;
+extern int currentSelection;
+extern int firstVisibleLine;
+extern uint8_t previous_bank_nr;
+extern String currentDirectory;
+
 class Config
 {
 public:
@@ -161,6 +172,7 @@ public:
     void saveEqualizerOnSD();
     void readVolumeFromSD();
     void saveVolumeOnSD();
+    void fetchStationsFromServer();
 
 private:
     void drawSwitch(uint8_t x, uint8_t y, bool state);

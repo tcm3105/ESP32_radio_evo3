@@ -652,3 +652,173 @@ void Config::saveVolumeOnSD()
     EEPROM.commit();
   }
 }
+
+// Funkcja do pobierania listy stacji radiowych z serwera
+void Config::fetchStationsFromServer()
+{
+  bankChange = true;
+  u8g2.setFont(spleen6x12PL);
+  u8g2.clearBuffer();
+  u8g2.setCursor(21, 23);
+  u8g2.print("Loading BANK:" + String(bank_nr) + " stations from:");
+  u8g2.sendBuffer();
+
+  currentSelection = 0;
+  firstVisibleLine = 0;
+  station_nr = 1;
+  previous_bank_nr = bank_nr; // jesli ładujemy stacje to ustawiamy zmienna previous_bank
+
+  // Utwórz obiekt klienta HTTP
+  HTTPClient http;
+
+  // URL stacji dla danego banku
+  String url;
+
+  // Wybierz URL na podstawie bank_nr za pomocą switch
+  switch (bank_nr)
+  {
+  case 1:
+    url = STATIONS_URL1;
+    break;
+  case 2:
+    url = STATIONS_URL2;
+    break;
+  case 3:
+    url = STATIONS_URL3;
+    break;
+  case 4:
+    url = STATIONS_URL4;
+    break;
+  case 5:
+    url = STATIONS_URL5;
+    break;
+  case 6:
+    url = STATIONS_URL6;
+    break;
+  case 7:
+    url = STATIONS_URL7;
+    break;
+  case 8:
+    url = STATIONS_URL8;
+    break;
+  case 9:
+    url = STATIONS_URL9;
+    break;
+  case 10:
+    url = STATIONS_URL10;
+    break;
+  case 11:
+    url = STATIONS_URL11;
+    break;
+  case 12:
+    url = STATIONS_URL12;
+    break;
+  case 13:
+    url = STATIONS_URL13;
+    break;
+  case 14:
+    url = STATIONS_URL14;
+    break;
+  case 15:
+    url = STATIONS_URL15;
+    break;
+  case 16:
+    url = STATIONS_URL16;
+    break;
+  default:
+    Serial.println("Nieprawidłowy numer banku");
+    return;
+  }
+
+  // Tworzenie nazwy pliku dla danego banku
+  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
+
+  // Sprawdzenie, czy plik istnieje
+  if (SD.exists(fileName) && bankNetworkUpdate == false)
+  {
+    Serial.println("Plik banku " + fileName + " już istnieje.");
+    u8g2.setFont(spleen6x12PL);
+    // u8g2.drawStr(147, 23, "SD card");
+    u8g2.print("SD CARD");
+    u8g2.sendBuffer();
+    readSDStations(); // Jesli plik istnieje to odczytujemy go tylko z karty
+  }
+  else
+  // if (bankNetworkUpdate = true)
+  {
+    bankNetworkUpdate = false;
+    // stworz plik na karcie tylko jesli on nie istnieje GR
+    u8g2.print("GitHub");
+    u8g2.sendBuffer();
+    {
+      // Próba utworzenia pliku, jeśli nie istnieje
+      File bankFile = SD.open(fileName, FILE_WRITE);
+
+      if (bankFile)
+      {
+        Serial.println("Utworzono plik banku: " + fileName);
+        bankFile.close(); // Zamykanie pliku po utworzeniu
+      }
+      else
+      {
+        Serial.println("Błąd: Nie można utworzyć pliku banku: " + fileName);
+        //  return;  // Przerwij dalsze działanie, jeśli nie udało się utworzyć pliku
+      }
+    }
+    // Inicjalizuj żądanie HTTP do podanego adresu URL
+    http.begin(url);
+
+    // Wykonaj żądanie GET i zapisz kod odpowiedzi HTTP
+    int httpCode = http.GET();
+
+    // Wydrukuj dodatkowe informacje diagnostyczne
+    Serial.print("Kod odpowiedzi HTTP: ");
+    Serial.println(httpCode);
+
+    // Sprawdź, czy żądanie było udane (HTTP_CODE_OK)
+    if (httpCode == HTTP_CODE_OK)
+    {
+      // Pobierz zawartość odpowiedzi HTTP w postaci tekstu
+      String payload = http.getString();
+      //  Otwórz plik w trybie zapisu, aby zapisać payload
+      File bankFile = SD.open(fileName, FILE_WRITE);
+      if (bankFile)
+      {
+        bankFile.println(payload); // Zapisz dane do pliku
+        bankFile.close();          // Zamknij plik po zapisaniu
+        Serial.println("Dane zapisane do pliku: " + fileName);
+      }
+      else
+      {
+        Serial.println("Błąd: Nie można otworzyć pliku do zapisu: " + fileName);
+      }
+      // Zapisz każdą niepustą stację do pamięci EEPROM z indeksem
+      int startIndex = 0;
+      int endIndex;
+      stationsCount = 0;
+      // Przeszukuj otrzymaną zawartość w poszukiwaniu nowych linii
+      while ((endIndex = payload.indexOf('\n', startIndex)) != -1 && stationsCount < MAX_STATIONS)
+      {
+        // Wyodrębnij pojedynczą stację z otrzymanego tekstu
+        String station = payload.substring(startIndex, endIndex);
+
+        // Sprawdź, czy stacja nie jest pusta, a następnie przetwórz i zapisz
+        if (!station.isEmpty())
+        {
+          // Zapisz stację do pliku na karcie SD
+          sanitizeAndSaveStation(station.c_str());
+        }
+        // Przesuń indeks początkowy do kolejnej linii
+        startIndex = endIndex + 1;
+      }
+    }
+    else
+    {
+      // W przypadku nieudanego żądania wydrukuj informację o błędzie z kodem HTTP
+      Serial.printf("Błąd podczas pobierania stacji. Kod HTTP: %d\n", httpCode);
+    }
+    // Zakończ połączenie HTTP
+    http.end();
+  }
+  bankChange = false;
+}

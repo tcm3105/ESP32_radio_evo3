@@ -2,12 +2,25 @@
 #define MAIN_H_
 
 #include "Arduino.h"
+#include "Audio.h"       // Biblioteka do obsługi funkcji związanych z dźwiękiem i audio
+#include "SPI.h"         // Biblioteka do obsługi komunikacji SPI
+#include "SD.h"          // Biblioteka do obsługi kart SD
+#include "FS.h"          // Biblioteka do obsługi systemu plików
+#include <U8g2lib.h>     // Biblioteka do obsługi wyświetlaczy
+#include <ezButton.h>    // Biblioteka do obsługi enkodera z przyciskiem
+#include <Ticker.h>      // Mechanizm tickera do odświeżania timera 1s, pomocny do cyklicznych akcji w pętli głównej
+#include <WiFiManager.h> // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
+#include <EEPROM.h>
+#include <Time.h> // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
 #include "config.h"
 #include "html.h"
 #include "fonts.h"
 #include "pictures.h"
 #include "tools.h"
 #include "filePlayer.h"
+#include "streamPlayer.h"
 
 enum MenuOption : int
 {

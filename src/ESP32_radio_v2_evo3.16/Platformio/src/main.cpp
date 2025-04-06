@@ -10,19 +10,6 @@
 // ###############################################################################################
 
 #include "Arduino.h"     // Standardowy nagłówek Arduino, który dostarcza podstawowe funkcje i definicje
-#include "Audio.h"       // Biblioteka do obsługi funkcji związanych z dźwiękiem i audio
-#include "SPI.h"         // Biblioteka do obsługi komunikacji SPI
-#include "SD.h"          // Biblioteka do obsługi kart SD
-#include "FS.h"          // Biblioteka do obsługi systemu plików
-#include <U8g2lib.h>     // Biblioteka do obsługi wyświetlaczy
-#include <ezButton.h>    // Biblioteka do obsługi enkodera z przyciskiem
-#include <HTTPClient.h>  // Biblioteka do wykonywania żądań HTTP, umożliwia komunikację z serwerami przez protokół HTTP
-#include <Ticker.h>      // Mechanizm tickera do odświeżania timera 1s, pomocny do cyklicznych akcji w pętli głównej
-#include <WiFiManager.h> // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
-#include <EEPROM.h>
-#include <Time.h> // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
-#include <ESPAsyncWebServer.h>
-#include <AsyncTCP.h>
 #include "main.h"
 
 // deklaracja wersji oprogramowania i nazwy hosta widocznego w routerach
@@ -43,10 +30,10 @@ WiFiManager wifiManager;
 // Obiekt do obsługi połączenia WiFi dla klienta HTTP
 WiFiClient client; 
 
-File myFile; // Uchwyt pliku
-
 // Konfiguracja nowego SPI z wybranymi pinami dla czytnika kart SD
 SPIClass customSPI = SPIClass(HSPI); // Używamy HSPI, ale z własnymi pinami
+
+File myFile; // Uchwyt pliku
 
 ezButton button1(SW_PIN1); // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2); // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
@@ -56,6 +43,7 @@ AudioBuffer audioBuffer;
 Config config;
 Tools tools;
 FilePlayer filePlayer;
+StreamPlayer streamPlayer;
 
 Ticker timer1; // Timer do updateTimerFlag co 1s
 Ticker timer2; // Timer do displayDimmerTimer co 60s
@@ -563,41 +551,6 @@ void encoderFunctionOrderChange()
   u8g2.sendBuffer();
 }
 
-void bankMenuDisplay()
-{
-  displayStartTime = millis();
-  Serial.println("debug--BankMenuDisplay");
-  volumeSet = false;
-  // previous_bank_nr = bank_nr;  // jesli weszlimy do menu "wybór banku" to zapisujemy obecny bank zanim zaczniemy krecic enkoderem
-  bankMenuEnable = true;
-  timeDisplay = false;
-  displayActive = true;
-  // bankChange = true;
-  // currentOption = BANK_LIST;  // Ustawienie listy banków do przewijania i wyboru
-  String bankNrStr = String(bank_nr);
-  Serial.println("Wyświetlenie listy banków");
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_fub14_tf);
-  u8g2.drawStr(80, 33, "BANK ");
-  u8g2.drawStr(145, 33, String(bank_nr).c_str()); // numer banku
-  if ((bankNetworkUpdate == true) || (noSDcard == true))
-  {
-    u8g2.setFont(spleen6x12PL);
-    u8g2.drawStr(185, 24, "NETWORK ");
-    u8g2.drawStr(188, 34, "UPDATE  ");
-
-    if (noSDcard == true)
-    {
-      // u8g2.drawStr(24, 24, "NO SD");
-      u8g2.drawStr(24, 34, "NO CARD");
-    }
-  }
-
-  u8g2.drawRFrame(21, 42, 214, 14, 3);               // Ramka do slidera bankow
-  u8g2.drawRBox((bank_nr * 13) + 10, 44, 15, 10, 2); // wypełnienie slidera
-  u8g2.sendBuffer();
-}
-
 // =========== Funkcja do obsługi przycisków enkoderów, debouncing i długiego naciśnięcia ==============//
 void handleButtons()
 {
@@ -694,7 +647,7 @@ void handleButtons()
       if (millis() - buttonPressTime2 >= buttonLongPressTime2 && !action2Taken && millis() - buttonPressTime2 < buttonSuperLongPressTime2)
       {
         Serial.println("debug--Bank Menu");
-        bankMenuDisplay();
+        streamPlayer.bankMenuDisplay();
 
         // Ustawiamy flagę akcji, aby wykonała się tylko raz
         action2Taken = true;
@@ -766,78 +719,6 @@ void scrollDown()
   Serial.println(currentSelection);
 }
 
-// Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
-void displayFolders()
-{
-  u8g2.clearBuffer();
-  u8g2.setFont(spleen6x12PL);
-  u8g2.setCursor(0, 10);
-  u8g2.print("   ODTWARZACZ PLIKOW - LISTA KATALOGOW    ");
-  // u8g2.setCursor(0, 21);
-  // u8g2.print(currentDirectory);  // Wyświetl bieżący katalog
-
-  int displayRow = 1; // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
-
-  // Wyświetlanie katalogów zaczynając od pierwszej widocznej linii
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, directoryCount); i++)
-  {
-    String fullPath = currentDirectory + directories[i];
-
-    // Pomijaj "System Volume Information"
-    if (fullPath != "/System Volume Information")
-    {
-      Serial.print("----------------------------------");
-      Serial.print("debug--Full path CurretnDirectory:");
-      Serial.println(currentDirectory);
-      // Sprawdź, czy ścieżka zaczyna się od aktualnego katalogu
-      if (fullPath.startsWith(currentDirectory))
-      // if (fullPath.startsWith(folderNameString))
-
-      {
-        // Ogranicz długość do 42 znaków
-        String displayedPath = fullPath.substring(currentDirectory.length() + 1, currentDirectory.length() + 42);
-        Serial.print("debug--Displayedpath:");
-        Serial.println(displayedPath);
-        // Podświetlenie zaznaczonego katalogu
-        // if (i == x) {x= i+1 }
-
-        if (i == currentSelection)
-        {
-          Serial.print("debug--Full path:");
-          Serial.println(fullPath);
-          Serial.print("debug--Indeks i:");
-          Serial.println(i);
-          Serial.print("debug--CurrentDirectory: ");
-          Serial.println(currentDirectory);
-
-          u8g2.setFont(spleen6x12PL);
-          u8g2.setDrawColor(1);                          // Biały kolor tła
-          u8g2.drawBox(0, displayRow * 13 - 2, 256, 13); // Narysuj prostokąt jako tło dla zaznaczonego folderu
-          u8g2.setDrawColor(0);                          // Czarny kolor tekstu
-        }
-        else
-        {
-          u8g2.setDrawColor(1);
-        }
-        // Wyświetl ścieżkę
-        //  u8g2.setDrawColor(1);
-        u8g2.setFont(spleen6x12PL);
-        u8g2.drawStr(0, displayRow * 13 + 8, String(displayedPath).c_str());
-
-        // Przesuń się do kolejnego wiersza
-        displayRow++;
-      }
-    }
-    else
-    {
-      displayPositionX = i; // todo ? "=="
-      Serial.println("SystemVOLUME");
-    }
-  }
-  // Przywróć domyślne ustawienia koloru rysowania (biały tekst na czarnym tle)
-  u8g2.setDrawColor(1); // Biały kolor rysowania
-  u8g2.sendBuffer();
-}
 
 // Funkcja do wylistowania katalogów z karty
 void listDirectories(const char *dirname)
@@ -857,11 +738,11 @@ void listDirectories(const char *dirname)
   Serial.println("Wylistowano katalogi z karty SD");
   root.close();
   scrollDown();
-  displayFolders();
+  filePlayer.displayFolders();
 }
 
 // Obsługa kółka enkodera 1 podczas dzialania odtwarzacza plików
-void handleEncoder1Rotation()
+void handleEncoder1RotationPlayer()
 {
   CLK_state1 = digitalRead(CLK_PIN1);
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
@@ -902,7 +783,7 @@ void handleEncoder1Rotation()
 }
 
 // Obsługa kółka enkodera 2 podczas dzialania odtwarzacza plików
-void handleEncoder2Rotation()
+void handleEncoder2RotationPlayer()
 {
   CLK_state2 = digitalRead(CLK_PIN2);
   if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH)
@@ -919,7 +800,7 @@ void handleEncoder2Rotation()
       Serial.print("Numer folderu do tyłu: ");
       Serial.println(folderIndex);
       scrollUp();
-      displayFolders();
+      filePlayer.displayFolders();
     }
     else
     {
@@ -932,7 +813,7 @@ void handleEncoder2Rotation()
       Serial.println(folderIndex);
 
       scrollDown();
-      displayFolders();
+      filePlayer.displayFolders();
     }
     displayActive = true;
     displayStartTime = millis();
@@ -1069,8 +950,8 @@ void playFromSelectedFolder()
         break;
       }
 
-      handleEncoder1Rotation(); // Obsługa kółka enkodera nr 1
-      handleEncoder2Rotation(); // Obsługa kółka enkodera nr 2
+      handleEncoder1RotationPlayer(); // Obsługa kółka enkodera nr 1
+      handleEncoder2RotationPlayer(); // Obsługa kółka enkodera nr 2
       backDisplayPlayer();      // Obsługa bezczynności, przywrócenie wyświetlania danych audio
     }
 
@@ -1197,7 +1078,7 @@ void rcInputKey(uint8_t i)
       i = 10;
     }
     bank_nr = i;
-    bankMenuDisplay();
+    streamPlayer.bankMenuDisplay();
   }
   else
   {
@@ -1344,9 +1225,11 @@ void changeStation()
     u8g2.setFont(spleen6x12PL); // wypisujemy jaki stream jakie stacji jest ładowany
     u8g2.drawStr(34, 55, String(stationName.substring(0, stationNameLenghtCut)).c_str());
     u8g2.sendBuffer();
-
+    Serial.println("ddddddddddddddddd");
     // Połącz z daną stacją
     audio.connecttohost(stationUrl.c_str());
+
+    Serial.println("rrrrrrrrrrrrrrrrrrrrrrrrr");
     stationFromBuffer = station_nr;
     bankFromBuffer = bank_nr;
 
@@ -2047,6 +1930,8 @@ void displayEqualizer() // Funkcja rysująca menu 3-punktowego equalizera
   u8g2.sendBuffer();
 }
 
+//=============== Recovery Mode========================
+
 void handlePreOtaUpdateCallback()
 {
   Update.onProgress([](unsigned int progress, unsigned int total)
@@ -2217,182 +2102,6 @@ void clearFlags()
   bank_nr = previous_bank_nr;
 }
 
-// Funkcja do pobierania listy stacji radiowych z serwera
-void fetchStationsFromServer()
-{
-  bankChange = true;
-  u8g2.setFont(spleen6x12PL);
-  u8g2.clearBuffer();
-  // u8g2.drawStr(21, 10, "Bank:");
-  // u8g2.drawStr(51, 10, String(bank_nr).c_str());
-  // u8g2.drawStr(21, 23, "Loading station from:");
-  u8g2.setCursor(21, 23);
-  u8g2.print("Loading BANK:" + String(bank_nr) + " stations from:");
-  u8g2.sendBuffer();
-
-  currentSelection = 0;
-  firstVisibleLine = 0;
-  station_nr = 1;
-  previous_bank_nr = bank_nr; // jesli ładujemy stacje to ustawiamy zmienna previous_bank
-
-  // Utwórz obiekt klienta HTTP
-  HTTPClient http;
-
-  // URL stacji dla danego banku
-  String url;
-
-  // Wybierz URL na podstawie bank_nr za pomocą switch
-  switch (bank_nr)
-  {
-  case 1:
-    url = STATIONS_URL1;
-    break;
-  case 2:
-    url = STATIONS_URL2;
-    break;
-  case 3:
-    url = STATIONS_URL3;
-    break;
-  case 4:
-    url = STATIONS_URL4;
-    break;
-  case 5:
-    url = STATIONS_URL5;
-    break;
-  case 6:
-    url = STATIONS_URL6;
-    break;
-  case 7:
-    url = STATIONS_URL7;
-    break;
-  case 8:
-    url = STATIONS_URL8;
-    break;
-  case 9:
-    url = STATIONS_URL9;
-    break;
-  case 10:
-    url = STATIONS_URL10;
-    break;
-  case 11:
-    url = STATIONS_URL11;
-    break;
-  case 12:
-    url = STATIONS_URL12;
-    break;
-  case 13:
-    url = STATIONS_URL13;
-    break;
-  case 14:
-    url = STATIONS_URL14;
-    break;
-  case 15:
-    url = STATIONS_URL15;
-    break;
-  case 16:
-    url = STATIONS_URL16;
-    break;
-  default:
-    Serial.println("Nieprawidłowy numer banku");
-    return;
-  }
-
-  // Tworzenie nazwy pliku dla danego banku
-  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
-
-  // Sprawdzenie, czy plik istnieje
-  if (SD.exists(fileName) && bankNetworkUpdate == false)
-  {
-    Serial.println("Plik banku " + fileName + " już istnieje.");
-    u8g2.setFont(spleen6x12PL);
-    // u8g2.drawStr(147, 23, "SD card");
-    u8g2.print("SD CARD");
-    u8g2.sendBuffer();
-    config.readSDStations(); // Jesli plik istnieje to odczytujemy go tylko z karty
-  }
-  else
-  // if (bankNetworkUpdate = true)
-  {
-    bankNetworkUpdate = false;
-    // stworz plik na karcie tylko jesli on nie istnieje GR
-    // u8g2.drawStr(205, 23, "GitHub server");
-    u8g2.print("GitHub");
-    u8g2.sendBuffer();
-    {
-      // Próba utworzenia pliku, jeśli nie istnieje
-      File bankFile = SD.open(fileName, FILE_WRITE);
-
-      if (bankFile)
-      {
-        Serial.println("Utworzono plik banku: " + fileName);
-        bankFile.close(); // Zamykanie pliku po utworzeniu
-      }
-      else
-      {
-        Serial.println("Błąd: Nie można utworzyć pliku banku: " + fileName);
-        //  return;  // Przerwij dalsze działanie, jeśli nie udało się utworzyć pliku
-      }
-    }
-    // Inicjalizuj żądanie HTTP do podanego adresu URL
-    http.begin(url);
-
-    // Wykonaj żądanie GET i zapisz kod odpowiedzi HTTP
-    int httpCode = http.GET();
-
-    // Wydrukuj dodatkowe informacje diagnostyczne
-    Serial.print("Kod odpowiedzi HTTP: ");
-    Serial.println(httpCode);
-
-    // Sprawdź, czy żądanie było udane (HTTP_CODE_OK)
-    if (httpCode == HTTP_CODE_OK)
-    {
-      // Pobierz zawartość odpowiedzi HTTP w postaci tekstu
-      String payload = http.getString();
-      // Serial.println("Stacje pobrane z serwera:");
-      // Serial.println(payload);  // Wyświetlenie pobranych danych (payload)
-      //  Otwórz plik w trybie zapisu, aby zapisać payload
-      File bankFile = SD.open(fileName, FILE_WRITE);
-      if (bankFile)
-      {
-        bankFile.println(payload); // Zapisz dane do pliku
-        bankFile.close();          // Zamknij plik po zapisaniu
-        Serial.println("Dane zapisane do pliku: " + fileName);
-      }
-      else
-      {
-        Serial.println("Błąd: Nie można otworzyć pliku do zapisu: " + fileName);
-      }
-      // Zapisz każdą niepustą stację do pamięci EEPROM z indeksem
-      int startIndex = 0;
-      int endIndex;
-      stationsCount = 0;
-      // Przeszukuj otrzymaną zawartość w poszukiwaniu nowych linii
-      while ((endIndex = payload.indexOf('\n', startIndex)) != -1 && stationsCount < MAX_STATIONS)
-      {
-        // Wyodrębnij pojedynczą stację z otrzymanego tekstu
-        String station = payload.substring(startIndex, endIndex);
-
-        // Sprawdź, czy stacja nie jest pusta, a następnie przetwórz i zapisz
-        if (!station.isEmpty())
-        {
-          // Zapisz stację do pliku na karcie SD
-          config.sanitizeAndSaveStation(station.c_str());
-        }
-        // Przesuń indeks początkowy do kolejnej linii
-        startIndex = endIndex + 1;
-      }
-    }
-    else
-    {
-      // W przypadku nieudanego żądania wydrukuj informację o błędzie z kodem HTTP
-      Serial.printf("Błąd podczas pobierania stacji. Kod HTTP: %d\n", httpCode);
-    }
-    // Zakończ połączenie HTTP
-    http.end();
-  }
-  bankChange = false;
-}
-
 void handleEncoder2StationsVolumeClick()
 {
   CLK_state2 = digitalRead(CLK_PIN2);                      // Odczytanie aktualnego stanu pinu CLK enkodera 2
@@ -2464,7 +2173,7 @@ void handleEncoder2StationsVolumeClick()
           bank_nr = 1;
         }
       }
-      bankMenuDisplay();
+      streamPlayer.bankMenuDisplay();
     }
   }
   prev_CLK_state2 = CLK_state2;
@@ -2495,7 +2204,7 @@ void handleEncoder2StationsVolumeClick()
     station_nr = 1;
     currentOption = static_cast<MenuOption>(INTERNET_RADIO);
 
-    fetchStationsFromServer();
+    config.fetchStationsFromServer();
     changeStation();
     u8g2.clearBuffer();
     displayRadio();
@@ -2582,7 +2291,7 @@ void handleEncoder2VolumeStationsClick()
           bank_nr = 1;
         }
       }
-      bankMenuDisplay();
+      streamPlayer.bankMenuDisplay();
     }
   }
   prev_CLK_state2 = CLK_state2;
@@ -2650,7 +2359,7 @@ void handleEncoder2VolumeStationsClick()
       bankMenuEnable = false;
       bankNetworkUpdate = false;
 
-      fetchStationsFromServer();
+      config.fetchStationsFromServer();
       changeStation();
       u8g2.clearBuffer();
       displayRadio();
@@ -2744,7 +2453,7 @@ void handleEncoder1()
     station_nr = 1;
     currentOption = static_cast<MenuOption>(INTERNET_RADIO);
 
-    fetchStationsFromServer();
+    config.fetchStationsFromServer();
     changeStation();
     bankNetworkUpdate = false;
     u8g2.clearBuffer();
@@ -2932,6 +2641,178 @@ void stationBankListHtmlPC()
   html += "</center></body></html>";
 }
 
+//=========================== begin audio =========================
+
+void audio_info(const char *info) 
+{
+  // Wyświetl informacje w konsoli szeregowej
+  Serial.print("info        ");
+  Serial.println(info);
+  // Znajdź pozycję "BitRate:" w tekście
+  int bitrateIndex = String(info).indexOf("BitRate:");
+  bitratePresent = false;
+  if (bitrateIndex != -1) 
+  {
+    // Przytnij tekst od pozycji "BitRate:" do końca linii
+    bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
+    bitrateStringInt = bitrateString.toInt();  // przliczenie bps na Kbps
+    bitrateStringInt = bitrateStringInt / 1000;
+    bitrateString = String(bitrateStringInt);
+    bitratePresent = true;
+
+    if (currentOption == PLAY_FILES) {
+      displayPlayer();
+    }
+    if (currentOption == INTERNET_RADIO) {
+      //displayRadio();
+     audioInfoRefresh = true;
+    }
+  }
+
+  // Znajdź pozycję "SampleRate:" w tekście
+  int sampleRateIndex = String(info).indexOf("SampleRate:");
+  if (sampleRateIndex != -1) {
+    // Przytnij tekst od pozycji "SampleRate:" do końca linii
+    sampleRateString = String(info).substring(sampleRateIndex + 11, String(info).indexOf('\n', sampleRateIndex));
+  }
+
+  // Znajdź pozycję "BitsPerSample:" w tekście
+  int bitsPerSampleIndex = String(info).indexOf("BitsPerSample:");
+  if (bitsPerSampleIndex != -1) {
+    // Przytnij tekst od pozycji "BitsPerSample:" do końca linii
+    bitsPerSampleString = String(info).substring(bitsPerSampleIndex + 15, String(info).indexOf('\n', bitsPerSampleIndex));
+  }
+
+  // Znajdź pozycję "skip metadata" w tekście
+  int metadata = String(info).indexOf("skip metadata");
+  if (metadata != -1) {
+    Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
+    if (fileNameString.length() > 84) {
+      fileNameString = String(fileNameString).substring(0, 84);  // Przytnij string do 84 znaków, aby zmieścić w 2 liniach z dalszym podziałem na pełne wyrazy
+    }
+  }
+
+  if (String(info).indexOf("MP3Decoder") != -1) {
+    mp3 = true;
+    flac = false;
+    aac = false;
+    vorbis = false;
+  }
+
+  if (String(info).indexOf("FLACDecoder") != -1) {
+    flac = true;
+    mp3 = false;
+    aac = false;
+    vorbis = false;
+  }
+
+  if (String(info).indexOf("AACDecoder") != -1) {
+    aac = true;
+    flac = false;
+    mp3 = false;
+    vorbis = false;
+  }
+  if (String(info).indexOf("VORBISDecoder") != -1) {
+    vorbis = true;
+    aac = false;
+    flac = false;
+    mp3 = false;
+  }
+}
+
+void audio_id3data(const char *info) {
+  Serial.print("id3data     ");
+  Serial.println(info);
+
+  // Znajdź pozycję w tekście
+  int artistIndex1 = String(info).indexOf("Artist: ");
+  int artistIndex2 = String(info).indexOf("ARTIST=");
+
+  if (artistIndex1 != -1) {
+    // Przytnij tekst od pozycji "Artist:" do końca linii
+    artistString = String(info).substring(artistIndex1 + 8, String(info).indexOf('\n', artistIndex1));
+    Serial.println("Znalazłem artystę: " + artistString);
+    id3tag = true;
+  }
+  if (artistIndex2 != -1) {
+    // Przytnij tekst od pozycji "ARTIST=" do końca linii
+    artistString = String(info).substring(artistIndex2 + 7, String(info).indexOf('\n', artistIndex2));
+    Serial.println("Znalazłem artystę: " + artistString);
+    id3tag = true;
+  }
+
+  // Znajdź pozycję w tekście
+  int titleIndex1 = String(info).indexOf("Title: ");
+  int titleIndex2 = String(info).indexOf("TITLE=");
+
+  if (titleIndex1 != -1) {
+    // Przytnij tekst od pozycji "Title: " do końca linii
+    titleString = String(info).substring(titleIndex1 + 7, String(info).indexOf('\n', titleIndex1));
+    Serial.println("Znalazłem tytuł: " + titleString);
+    id3tag = true;
+  }
+  if (titleIndex2 != -1) {
+    // Przytnij tekst od pozycji "TITLE=" do końca linii
+    titleString = String(info).substring(titleIndex2 + 6, String(info).indexOf('\n', titleIndex2));
+    Serial.println("Znalazłem tytuł: " + titleString);
+    id3tag = true;
+  }
+}
+
+void audio_bitrate(const char *info) {
+  Serial.print("bitrate     ");
+  Serial.println(info);
+}
+
+void audio_eof_mp3(const char *info) {
+  fileEnd = true;
+  Serial.print("eof_mp3     ");
+  Serial.println(info);
+}
+
+void audio_showstation(const char *info) {
+  Serial.print("station     ");
+  Serial.println(info);
+  stationNameStream = info;
+  audioInfoRefresh = true;
+}
+
+void audio_showstreamtitle(const char *info) {
+  Serial.print("streamtitle ");
+  Serial.println(info);
+  stationString = String(info);
+  if (currentOption == INTERNET_RADIO) {
+
+    ActionNeedUpdateTime = true;
+    if ((volumeSet == false) && (bankMenuEnable == false) && (listedStations == false) && (rcInputDigitsMenuEnable == false) && (equalizerMenuEnable == false))
+    {
+    audioShowStreamtitleRefresh = true;
+    }
+  }
+}
+
+void audio_commercial(const char *info) {
+  Serial.print("commercial  ");
+  Serial.println(info);
+}
+
+void audio_icyurl(const char *info) {
+  Serial.print("icyurl      ");
+  Serial.println(info);
+}
+
+void audio_lasthost(const char *info) {
+  Serial.print("lasthost    ");
+  Serial.println(info);
+}
+
+void audio_eof_speech(const char *info) {
+  Serial.print("eof_speech  ");
+  Serial.println(info);
+}
+
+//=========================== end audio =========================
+
 // ####################################################################################### SETUP ####################################################################################### //
 void setup()
 {
@@ -3027,6 +2908,7 @@ void setup()
   {
     Serial.println("Karta SD zainicjalizowana pomyślnie.");
   }
+  
   Serial.print("Numer seryjny ESP:");
   Serial.println(ESP.getEfuseMac());
 
@@ -3083,7 +2965,7 @@ void setup()
     timer2.attach(60, displayDimmerTimer); // Ustaw timer, aby wywoływał funkcję displayDimmerTimer co 60 sekund
 
     uint8_t temp_station_nr = station_nr; // Chowamy na chwile odczytaną stacje z karty SD
-    fetchStationsFromServer();
+    config.fetchStationsFromServer();
     station_nr = temp_station_nr; // Przywracamy numer po odczycie stacji
 
     changeStation();
@@ -3098,7 +2980,7 @@ void setup()
         stationBankListHtmlMobile();
         html = String(index_html) + html;
       } 
-      else //Jestemy na komputerze typu desktop
+      else //Jestemy na komputerze
       {
         stationBankListHtmlPC();
         html = String(index_html) + html;  // Składamy cześć stałą html z częscią generowaną dynamicznie
@@ -3108,22 +2990,18 @@ void setup()
 
     server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-        //request->send(SD, "/favicon.png", "image/x-icon");
         request->send(SD, "/favicon.ico", "image/x-icon"); });
 
     server.on("/icon.png", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-        //request->send(SD, "/favicon.png", "image/x-icon");
         request->send(SD, "/icon.png", "image/x-icon"); });
 
     server.on("/volminus.png", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-        //request->send(SD, "/favicon.png", "image/x-icon");
         request->send(SD, "/volminus.png", "image/x-icon"); });
 
     server.on("/volplus.png", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-        //request->send(SD, "/favicon.png", "image/x-icon");
         request->send(SD, "/volplus.png", "image/x-icon"); });
 
     server.on("/page2", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -3196,7 +3074,7 @@ void setup()
         station_nr = 1;
         bankMenuEnable = true;        
         
-        fetchStationsFromServer();
+        config.fetchStationsFromServer();
         clearFlags();
 
         ir_code = rcCmdOk; // Przypisujemy kod polecenia z pilota
@@ -3378,7 +3256,7 @@ void loop()
           {
             bank_nr = 1;
           }
-          bankMenuDisplay();
+          streamPlayer.bankMenuDisplay();
         }
         else if (equalizerMenuEnable == true)
         {
@@ -3430,7 +3308,7 @@ void loop()
           {
             bank_nr = 16;
           }
-          bankMenuDisplay();
+          streamPlayer.bankMenuDisplay();
         }
         else if (equalizerMenuEnable == true)
         {
@@ -3529,7 +3407,7 @@ void loop()
         if (bankMenuEnable == true)
         {
           station_nr = 1;
-          fetchStationsFromServer(); // Ładujemy stacje z karty lub serwera
+          config.fetchStationsFromServer(); // Ładujemy stacje z karty lub serwera
           bankMenuEnable = false;
         }
         if (equalizerMenuEnable == true)
@@ -3610,7 +3488,7 @@ void loop()
         if ((bankMenuEnable == true) && (equalizerMenuEnable == false)) // flage można zmienic tylko bedąc w menu wyboru banku
         {
           bankNetworkUpdate = !bankNetworkUpdate; // zmiana flagi czy aktualizujemy bank z sieci czy karty SD
-          bankMenuDisplay();
+          streamPlayer.bankMenuDisplay();
         }
         if ((bankMenuEnable == false) && (equalizerMenuEnable == true))
         {
@@ -3663,7 +3541,7 @@ void loop()
           }
         }
 
-        bankMenuDisplay();
+        streamPlayer.bankMenuDisplay();
       }
       else if (ir_code == rcCmdBankPlus)
       {
@@ -3675,7 +3553,7 @@ void loop()
             bank_nr = 1;
           }
         }
-        bankMenuDisplay();
+        streamPlayer.bankMenuDisplay();
       }
 
       else if (ir_code == rcCmdAud)

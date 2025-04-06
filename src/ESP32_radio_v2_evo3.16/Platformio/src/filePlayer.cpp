@@ -71,139 +71,75 @@ bool FilePlayer::isAudioFile(const char *filename)
     return (strcasecmp(ext, ".mp3") == 0 || strcasecmp(ext, ".wav") == 0 || strcasecmp(ext, ".flac") == 0);
 }
 
-// Obecnie nie używana
-// Funkcja do wyświetlania informacji o pliku audio
-void FilePlayer::audio_info(const char *info)
+// Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
+void FilePlayer::displayFolders()
 {
-    // Wyświetl informacje w konsoli szeregowej
-    Serial.print("info        ");
-    Serial.println(info);
-    // Znajdź pozycję "BitRate:" w tekście
-    int bitrateIndex = String(info).indexOf("BitRate:");
-    bitratePresent = false;
-    if (bitrateIndex != -1)
-    {
-        // Przytnij tekst od pozycji "BitRate:" do końca linii
-        bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
-        bitrateStringInt = bitrateString.toInt(); // przliczenie bps na Kbps
-        bitrateStringInt = bitrateStringInt / 1000;
-        bitrateString = String(bitrateStringInt);
-        bitratePresent = true;
+  u8g2.clearBuffer();
+  u8g2.setFont(spleen6x12PL);
+  u8g2.setCursor(0, 10);
+  u8g2.print("   ODTWARZACZ PLIKOW - LISTA KATALOGOW    ");
+  // u8g2.setCursor(0, 21);
+  // u8g2.print(currentDirectory);  // Wyświetl bieżący katalog
 
-        /*
-        if (currentOption == PLAY_FILES)
+  int displayRow = 1; // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
+
+  // Wyświetlanie katalogów zaczynając od pierwszej widocznej linii
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, directoryCount); i++)
+  {
+    String fullPath = currentDirectory + directories[i];
+
+    // Pomijaj "System Volume Information"
+    if (fullPath != "/System Volume Information")
+    {
+      Serial.print("----------------------------------");
+      Serial.print("debug--Full path CurretnDirectory:");
+      Serial.println(currentDirectory);
+      // Sprawdź, czy ścieżka zaczyna się od aktualnego katalogu
+      if (fullPath.startsWith(currentDirectory))
+      // if (fullPath.startsWith(folderNameString))
+
+      {
+        // Ogranicz długość do 42 znaków
+        String displayedPath = fullPath.substring(currentDirectory.length() + 1, currentDirectory.length() + 42);
+        Serial.print("debug--Displayedpath:");
+        Serial.println(displayedPath);
+        // Podświetlenie zaznaczonego katalogu
+        // if (i == x) {x= i+1 }
+
+        if (i == currentSelection)
         {
-          displayPlayer();
+          Serial.print("debug--Full path:");
+          Serial.println(fullPath);
+          Serial.print("debug--Indeks i:");
+          Serial.println(i);
+          Serial.print("debug--CurrentDirectory: ");
+          Serial.println(currentDirectory);
+
+          u8g2.setFont(spleen6x12PL);
+          u8g2.setDrawColor(1);                          // Biały kolor tła
+          u8g2.drawBox(0, displayRow * 13 - 2, 256, 13); // Narysuj prostokąt jako tło dla zaznaczonego folderu
+          u8g2.setDrawColor(0);                          // Czarny kolor tekstu
         }
-        if (currentOption == INTERNET_RADIO)
+        else
         {
-          // displayRadio();
-          audioInfoRefresh = true;
+          u8g2.setDrawColor(1);
         }
-        */
-    }
+        // Wyświetl ścieżkę
+        //  u8g2.setDrawColor(1);
+        u8g2.setFont(spleen6x12PL);
+        u8g2.drawStr(0, displayRow * 13 + 8, String(displayedPath).c_str());
 
-    // Znajdź pozycję "SampleRate:" w tekście
-    int sampleRateIndex = String(info).indexOf("SampleRate:");
-    if (sampleRateIndex != -1)
+        // Przesuń się do kolejnego wiersza
+        displayRow++;
+      }
+    }
+    else
     {
-        // Przytnij tekst od pozycji "SampleRate:" do końca linii
-        sampleRateString = String(info).substring(sampleRateIndex + 11, String(info).indexOf('\n', sampleRateIndex));
+      displayPositionX = i; // todo ? "=="
+      Serial.println("SystemVOLUME");
     }
-
-    // Znajdź pozycję "BitsPerSample:" w tekście
-    int bitsPerSampleIndex = String(info).indexOf("BitsPerSample:");
-    if (bitsPerSampleIndex != -1)
-    {
-        // Przytnij tekst od pozycji "BitsPerSample:" do końca linii
-        bitsPerSampleString = String(info).substring(bitsPerSampleIndex + 15, String(info).indexOf('\n', bitsPerSampleIndex));
-    }
-
-    // Znajdź pozycję "skip metadata" w tekście
-    int metadata = String(info).indexOf("skip metadata");
-    if (metadata != -1)
-    {
-        Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
-        if (fileNameString.length() > 84)
-        {
-            fileNameString = String(fileNameString).substring(0, 84); // Przytnij string do 84 znaków, aby zmieścić w 2 liniach z dalszym podziałem na pełne wyrazy
-        }
-    }
-
-    if (String(info).indexOf("MP3Decoder") != -1)
-    {
-        mp3 = true;
-        flac = false;
-        aac = false;
-        vorbis = false;
-    }
-
-    if (String(info).indexOf("FLACDecoder") != -1)
-    {
-        flac = true;
-        mp3 = false;
-        aac = false;
-        vorbis = false;
-    }
-
-    if (String(info).indexOf("AACDecoder") != -1)
-    {
-        aac = true;
-        flac = false;
-        mp3 = false;
-        vorbis = false;
-    }
-    if (String(info).indexOf("VORBISDecoder") != -1)
-    {
-        vorbis = true;
-        aac = false;
-        flac = false;
-        mp3 = false;
-    }
-}
-
-// Obecnie nie używana
-// Funkcja do wyświetlania danych ID3 z pliku audio
-void FilePlayer::audio_id3data(const char *info)
-{
-  Serial.print("id3data     ");
-  Serial.println(info);
-
-  // Znajdź pozycję w tekście
-  int artistIndex1 = String(info).indexOf("Artist: ");
-  int artistIndex2 = String(info).indexOf("ARTIST=");
-
-  if (artistIndex1 != -1)
-  {
-    // Przytnij tekst od pozycji "Artist:" do końca linii
-    artistString = String(info).substring(artistIndex1 + 8, String(info).indexOf('\n', artistIndex1));
-    Serial.println("Znalazłem artystę: " + artistString);
-    id3tag = true;
   }
-  if (artistIndex2 != -1)
-  {
-    // Przytnij tekst od pozycji "ARTIST=" do końca linii
-    artistString = String(info).substring(artistIndex2 + 7, String(info).indexOf('\n', artistIndex2));
-    Serial.println("Znalazłem artystę: " + artistString);
-    id3tag = true;
-  }
-
-  // Znajdź pozycję w tekście
-  int titleIndex1 = String(info).indexOf("Title: ");
-  int titleIndex2 = String(info).indexOf("TITLE=");
-
-  if (titleIndex1 != -1)
-  {
-    // Przytnij tekst od pozycji "Title: " do końca linii
-    titleString = String(info).substring(titleIndex1 + 7, String(info).indexOf('\n', titleIndex1));
-    Serial.println("Znalazłem tytuł: " + titleString);
-    id3tag = true;
-  }
-  if (titleIndex2 != -1)
-  {
-    // Przytnij tekst od pozycji "TITLE=" do końca linii
-    titleString = String(info).substring(titleIndex2 + 6, String(info).indexOf('\n', titleIndex2));
-    Serial.println("Znalazłem tytuł: " + titleString);
-    id3tag = true;
-  }
+  // Przywróć domyślne ustawienia koloru rysowania (biały tekst na czarnym tle)
+  u8g2.setDrawColor(1); // Biały kolor rysowania
+  u8g2.sendBuffer();
 }
