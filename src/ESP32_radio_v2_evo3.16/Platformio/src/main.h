@@ -21,6 +21,7 @@
 #include "tools.h"
 #include "filePlayer.h"
 #include "streamPlayer.h"
+#include "ir.h"
 
 enum MenuOption : int
 {

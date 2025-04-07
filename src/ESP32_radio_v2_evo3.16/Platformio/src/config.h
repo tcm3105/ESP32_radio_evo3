@@ -67,37 +67,6 @@
 #define STATIONS_URL15 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank15.txt" // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL16 "https://raw.githubusercontent.com/dzikakuna/ESP32_radio_streams/main/bank16.txt" // Adres URL do pliku z listą stacji radiowych
 
-// ----------- PILOT IR ----------- //
-// Przypisanie przycisków i adresu pilota w standardzie NEC
-// pierwszy bajt adres, drugi komenda (B914 - adres B9 komenda 14)
-
-#define rcCmdVolumeUp 0xB914   // Głosnosc +
-#define rcCmdVolumeDown 0xB915 // Głośnosc -
-#define rcCmdArrowRight 0xB90B // strzałka w prawo - nastepna stacja
-#define rcCmdArrowLeft 0xB90A  // strzałka w lewo - poprzednia stacja
-#define rcCmdArrowUp 0xB987    // strzałka w góre - lista stacji krok do gory
-#define rcCmdArrowDown 0xB986  // strzałka w dół - lista stacj krok na dół
-#define rcCmdBack 0xB985       // Przycisk powrotu
-#define rcCmdOk 0xB90E         // Przycisk Ent - zatwierdzenie stacji
-#define rcCmdSrc 0xB913        // Przełączanie źródła radio, odtwarzacz
-#define rcCmdMute 0xB916       // Wyciszenie dzwieku
-#define rcCmdAud 0xB917        // Equalizer dzwieku
-#define rcCmdDirect 0xB90F     // Janość ekranu, dwa tryby 1/16 lub pełna janość
-#define rcCmdBankMinus 0xB90C  // Wysweitla wybór banku
-#define rcCmdBankPlus 0xB90D   // Wysweitla wybór banku
-#define rcCmdRed 0xB988        // Przełacza ładowanie banku kartaSD - serwer GitHub w menu bank
-#define rcCmdGreen 0xB992      // VU wyłaczony, VU tryb 1, VU tryb 2, zegar
-#define rcCmdKey0 0xB900       // Przycisk "0"
-#define rcCmdKey1 0xB901       // Przycisk "1"
-#define rcCmdKey2 0xB902       // Przycisk "2"
-#define rcCmdKey3 0xB903       // Przycisk "3"
-#define rcCmdKey4 0xB904       // Przycisk "4"
-#define rcCmdKey5 0xB905       // Przycisk "5"
-#define rcCmdKey6 0xB906       // Przycisk "6"
-#define rcCmdKey7 0xB907       // Przycisk "7"
-#define rcCmdKey8 0xB908       // Przycisk "8"
-#define rcCmdKey9 0xB909       // Przycisk "9"
-
 // -------------------- Koniec konfiguracji ------------------- //
 
 extern U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2;
@@ -132,7 +101,6 @@ extern String stationString;
 extern uint8_t bank_nr;
 extern String stationName;
 
-
 extern unsigned char *psramData;
 extern uint8_t displayPositionX;
 
@@ -146,7 +114,6 @@ extern int8_t toneLowValue;          // Wartosc filtra dla tonow niskich
 extern int8_t toneMidValue;          // Wartosc flitra dla tonow srednich
 extern int8_t toneHiValue;        // Wartosc filtra dla tonow wysokich
 
-
 extern bool volumeSet;
 extern bool bankMenuEnable;
 extern bool bankNetworkUpdate;
@@ -156,6 +123,19 @@ extern int currentSelection;
 extern int firstVisibleLine;
 extern uint8_t previous_bank_nr;
 extern String currentDirectory;
+
+extern bool rcInputDigitsMenuEnable;
+extern uint8_t rcInputDigit1;
+extern uint8_t rcInputDigit2;
+extern int stationFromBuffer;
+
+//html
+extern String html;
+extern String url2play;
+extern String stationNameStream;
+extern uint8_t stationNameLenghtCut;
+extern String softwareRev;    // Wersja oprogramowania radia
+extern String hostname;
 
 class Config
 {

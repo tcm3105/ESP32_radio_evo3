@@ -1,6 +1,10 @@
 #ifndef HTML_H_
 #define HTML_H_
 
+#include "config.h"
+#include "Audio.h" // Include the header for streamPlayer
+extern Audio audio; // Declare streamPlayer as an external object
+
 const char index_html[] PROGMEM = R"rawliteral(
     <!DOCTYPE HTML><html>
     <head>
@@ -94,5 +98,13 @@ const char index_html[] PROGMEM = R"rawliteral(
       </script>
     
     )rawliteral";
+
+class Html
+{
+public:
+  void webUrlStationPlay();
+  void stationBankListHtmlMobile();
+  void stationBankListHtmlPC();
+};
 
 #endif
