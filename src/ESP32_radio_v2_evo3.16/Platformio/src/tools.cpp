@@ -176,3 +176,74 @@ void Tools::drawSignalPower(uint8_t xpwr, uint8_t ypwr, bool print)
   }
 }
 
+void Tools::encoderFunctionOrderChange()
+{
+  displayActive = true;
+  displayStartTime = millis();
+  volumeSet = false;
+  timeDisplay = false;
+  bankMenuEnable = false;
+  encoderFunctionOrder = !encoderFunctionOrder;
+  u8g2.clearBuffer();
+  u8g2.setFont(spleen6x12PL);
+  u8g2.drawStr(1, 14, "Encoder function order change:");
+  if (encoderFunctionOrder == false)
+  {
+    u8g2.drawStr(1, 28, "Rotate for volume, press for station list");
+  }
+  if (encoderFunctionOrder == true)
+  {
+    u8g2.drawStr(1, 28, "Rotate for station list, press for volume");
+  }
+  u8g2.sendBuffer();
+}
+
+void Tools::displayDimmer(bool dimmerON)
+{
+  if ((dimmerON == 1) && (displayBrightness == 15) && (displayAutoDimmerOn == true))
+  {
+    u8g2.sendF("ca", 0xC7, dimmerDisplayBrightness);
+  }
+  if (dimmerON == 0)
+  {
+    u8g2.sendF("ca", 0xC7, displayBrightness);
+    displayDimmerTimeCounter = 0;
+  }
+}
+
+void Tools::vuMeter()
+{
+  vuMeterR = min(audio.getVUlevel() & 0xFF, 250); // wyciagamy ze zmiennej typu int16 kanał L
+  vuMeterL = min(audio.getVUlevel() >> 8, 250);   // z wyzszej polowki wyciagamy kanal P
+
+  // vuMeterL = (vuMeterL >> 1); // dzielimy przez 2 -> przesuniecie o jeden bit abyz  255 -> 64
+  // vuMeterR = (vuMeterR >> 1);
+
+  if (volumeMute == false)
+  {
+    u8g2.setDrawColor(0);
+    u8g2.drawBox(0, 41, 253, 3); // czyszczenie ekranu pod VU meter
+    u8g2.drawBox(0, 46, 253, 3);
+    u8g2.setDrawColor(1);
+
+    if (vuMeterMode == 1) // tryb 1 ciagle paski
+    {
+      u8g2.setDrawColor(1);
+      u8g2.drawBox(0, 41, vuMeterL, 3); // rysujemy kreseczki o dlugosci odpowiadajacej wartosci VU
+      u8g2.drawBox(0, 46, vuMeterR, 3);
+    }
+    else // vuMeterMode == 0  tryb podstawowy, kreseczki z przerwami
+    {
+      for (uint8_t vusize = 0; vusize < vuMeterL; vusize++)
+      {
+        u8g2.drawBox(vusize, 41, 8, 2);
+        vusize = vusize + 8;
+      }
+      for (uint8_t vusize = 0; vusize < vuMeterR; vusize++)
+      {
+        u8g2.drawBox(vusize, 46, 8, 2);
+        vusize = vusize + 8;
+      }
+    }
+  }
+}

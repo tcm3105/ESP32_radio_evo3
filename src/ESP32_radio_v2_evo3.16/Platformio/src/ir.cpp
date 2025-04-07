@@ -96,3 +96,30 @@ void Ir::rcInputKey(uint8_t i)
     }
   }
 }
+
+// Funkcja umozliwajaca przeliczanie odwrotne aby "udawac" przyciskami klawiatury komendy piltoa w standardzie NEC
+void Ir::calcNec() 
+{
+  // składamy kod pilota do postaci ADDR/CMD/CMD/ADDR aby miec 4 bajty
+  uint8_t CMD = (ir_code >> 8) & 0xFF;
+  uint8_t ADDR = ir_code & 0xFF;
+  ir_code = ADDR;
+  ir_code = (ir_code << 8) | CMD;
+  ir_code = (ir_code << 8) | CMD;
+  ir_code = (ir_code << 8) | ADDR;
+  ADDR = (ir_code >> 24) & 0xFF;          // Pierwszy bajt
+  uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
+  CMD = (ir_code >> 8) & 0xFF;            // Trzeci bajt (komenda)
+  uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
+
+  // Dorabiamy brakujące odwórcone bajty
+  IADDR = IADDR ^ 0xFF;
+  ICMD = ICMD ^ 0xFF;
+
+  // Składamy bajty w jeden ciąg
+  ir_code = ICMD;
+  ir_code = (ir_code << 8) | ADDR;
+  ir_code = (ir_code << 8) | IADDR;
+  ir_code = (ir_code << 8) | CMD;
+  ir_code = toolsClass.reverse_bits(ir_code, 32); // rotacja bitów do porządku LSB-MSB jak w NEC
+}

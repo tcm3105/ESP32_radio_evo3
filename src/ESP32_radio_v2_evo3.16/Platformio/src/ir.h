@@ -3,7 +3,10 @@
 
 #include "config.h"
 #include "streamPlayer.h" // Include the header for streamPlayer
+#include "tools.h" // Include the header for streamPlayer
+
 extern StreamPlayer streamPlayerClass; // Declare streamPlayer as an external object
+extern Tools toolsClass; // Declare streamPlayer as an external object
 
 // ----------- PILOT IR ----------- //
 // Przypisanie przycisków i adresu pilota w standardzie NEC
@@ -40,6 +43,7 @@ class Ir
 {
 public:
     void rcInputKey(uint8_t i);
+    void calcNec();
 };
 
 #endif

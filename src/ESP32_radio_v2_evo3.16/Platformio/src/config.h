@@ -71,6 +71,7 @@
 
 extern U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2;
 
+// StreamPlayer
 extern unsigned long displayStartTime;
 extern bool equalizerMenuEnable;
 extern bool timeDisplay;
@@ -78,6 +79,12 @@ extern bool displayActive;
 extern const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL");
 extern bool displayAutoDimmerOn;
 extern uint16_t displayAutoDimmerTime;
+extern uint8_t displayMode;
+extern String stationStringScroll;
+extern uint16_t stationStringScrollWidth; 
+extern String PlayedFolderName;
+extern int fileFromBuffer;
+extern int totalFilesInFolder;
 
 extern int directoryCount;
 extern String directories[MAX_FILES]; 
@@ -114,9 +121,13 @@ extern int8_t toneLowValue;          // Wartosc filtra dla tonow niskich
 extern int8_t toneMidValue;          // Wartosc flitra dla tonow srednich
 extern int8_t toneHiValue;        // Wartosc filtra dla tonow wysokich
 
+// StreamPlayer
 extern bool volumeSet;
 extern bool bankMenuEnable;
 extern bool bankNetworkUpdate;
+extern bool listedStations;
+extern int maxVisibleLines;
+extern int bankFromBuffer;
 
 extern bool bankChange;
 extern int currentSelection;
@@ -124,18 +135,30 @@ extern int firstVisibleLine;
 extern uint8_t previous_bank_nr;
 extern String currentDirectory;
 
+// Ir
 extern bool rcInputDigitsMenuEnable;
 extern uint8_t rcInputDigit1;
 extern uint8_t rcInputDigit2;
 extern int stationFromBuffer;
+extern unsigned long ir_code;
 
-//html
+// Html
 extern String html;
 extern String url2play;
 extern String stationNameStream;
 extern uint8_t stationNameLenghtCut;
 extern String softwareRev;    // Wersja oprogramowania radia
 extern String hostname;
+
+// Tools
+extern bool encoderFunctionOrder;
+extern uint8_t displayBrightness;
+extern uint8_t dimmerDisplayBrightness;
+extern uint8_t displayDimmerTimeCounter;
+extern uint8_t vuMeterL;
+extern uint8_t vuMeterR;  
+extern bool volumeMute;
+extern bool vuMeterMode;
 
 class Config
 {
